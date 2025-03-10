@@ -20,20 +20,20 @@ class LineMIComputer:
         Y_counts = (Y_diff < radius).sum(dim=1)
         return X_counts - 1, Y_counts - 1
 
-    def compute_radius(self, radius, jk_X_mask, X, Y):
-        # Do a pre step where we extract those out, where we construct a new tensor
-        # For each join key group, we are looking at a different step which is not monotone
-        # What we can do is add a prestep where we first construct
-        # Create radius tensor in computemi and then pass it into compute radius and specify which sections of the tensor
-        # Bascially just indexing here
-        # Maybe use something similar to scatter reduce (bc tensors)
-        points = torch.stack((X, Y), dim=2)
-        points1 = points.unsqueeze(1)
-        points2 = points.unsqueeze(0)
-        distances = torch.max(torch.abs(points1 - points2),dim=3)[0].permute(1, 2, 0)
-        k_distances, _ = torch.topk(
-            distances, k=self.k+1, dim=2, largest=False)
-        return k_distances[:, :, -1]
+    # def compute_radius(self, radius, jk_X_mask, X, Y):
+    #     # Do a pre step where we extract those out, where we construct a new tensor
+    #     # For each join key group, we are looking at a different step which is not monotone
+    #     # What we can do is add a prestep where we first construct
+    #     # Create radius tensor in computemi and then pass it into compute radius and specify which sections of the tensor
+    #     # Bascially just indexing here
+    #     # Maybe use something similar to scatter reduce (bc tensors)
+    #     points = torch.stack((X, Y), dim=2)
+    #     points1 = points.unsqueeze(1)
+    #     points2 = points.unsqueeze(0)
+    #     distances = torch.max(torch.abs(points1 - points2),dim=3)[0].permute(1, 2, 0)
+    #     k_distances, _ = torch.topk(
+    #         distances, k=self.k+1, dim=2, largest=False)
+    #     return k_distances[:, :, -1]
     
     def compute_line_dists(self, X, x_key_inds, Y):
         # O(|J|^2) iterative operation, not very good. Also done iteravely, which I should fix once it works
@@ -83,6 +83,11 @@ class LineMIComputer:
             
             y_dists = torch.abs(Y[jk] - Y[line_neighbors])
             y_radius[jk] = y_dists.max()
+
+        radius = torch.zeros_like(X)
+
+        y_radius_expanded = y_radius[x_key_inds]
+        radii = torch.maximum(x_radius, y_radius_expanded)
 
         nx, ny = self.compute_counts(X, Y, radii)
         # Split compute counts into 2 functions where we take x radius and count of y
